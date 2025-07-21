@@ -11,6 +11,8 @@ import { GameHpPolicy, NoopHpPolicy } from './HpPolicy';
 
 import skills from './data/skill_data.json';
 
+const courseHelpers = new CourseHelpers();
+
 type PartialRaceParameters = Omit<{ -readonly [K in keyof RaceParameters]: RaceParameters[K] }, 'skillId'>;
 
 export interface HorseDesc {
@@ -195,7 +197,7 @@ export function buildBaseStats(horseDesc: HorseDesc, mood: Mood) {
 }
 
 export function buildAdjustedStats(baseStats: HorseParameters, course: CourseData, ground: GroundCondition) {
-	const raceCourseModifier = CourseHelpers.courseSpeedModifier(course, baseStats);
+	const raceCourseModifier = courseHelpers.courseSpeedModifier(course, baseStats);
 
 	return Object.freeze({
 		speed: Math.max(baseStats.speed * raceCourseModifier + GroundSpeedModifier[course.surface][ground], 1),
@@ -357,7 +359,7 @@ export const conditionsWithActivateCountsAsRandom = Object.freeze(Object.assign(
 	}),
 	activate_count_end_after: random({
 		filterGte(regions: RegionList, _0: number, course: CourseData, _1: HorseParameters, extra: RaceParameters) {
-			const bounds = new Region(CourseHelpers.phaseStart(course.distance, 2), CourseHelpers.phaseEnd(course.distance, 3));
+			const bounds = new Region(courseHelpers.phaseStart(course.distance, 2), courseHelpers.phaseEnd(course.distance, 3));
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
@@ -370,14 +372,14 @@ export const conditionsWithActivateCountsAsRandom = Object.freeze(Object.assign(
 	}),
 	activate_count_middle: random({
 		filterGte(regions: RegionList, n: number, course: CourseData, _1: HorseParameters, extra: RaceParameters) {
-			const start = CourseHelpers.phaseStart(course.distance, 1), end = CourseHelpers.phaseEnd(course.distance, 1);
+			const start = courseHelpers.phaseStart(course.distance, 1), end = courseHelpers.phaseEnd(course.distance, 1);
 			const bounds = new Region(start, start + n / 10 * (end - start));
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
 	activate_count_start: immediate({  // for 地固め
 		filterGte(regions: RegionList, _0: number, course: CourseData, _1: HorseParameters, extra: RaceParameters) {
-			const bounds = new Region(CourseHelpers.phaseStart(course.distance, 0), CourseHelpers.phaseEnd(course.distance, 0));
+			const bounds = new Region(courseHelpers.phaseStart(course.distance, 0), courseHelpers.phaseEnd(course.distance, 0));
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	})
@@ -428,7 +430,7 @@ export class RaceSolverBuilder {
 
 	course(course: number | CourseData) {
 		if (typeof course == 'number') {
-			this._course = CourseHelpers.getCourse(course);
+			this._course = courseHelpers.getCourse(course);
 		} else {
 			this._course = course;
 		}
@@ -548,7 +550,7 @@ export class RaceSolverBuilder {
 
 			if (power > 1200) {
 				const spurtStart = new RegionList();
-				spurtStart.push(new Region(CourseHelpers.phaseStart(course.distance, 2), course.distance));
+				spurtStart.push(new Region(courseHelpers.phaseStart(course.distance, 2), course.distance));
 				skilldata.push({
 					skillId: 'asitame',
 					perspective: Perspective.Self,
@@ -582,7 +584,7 @@ export class RaceSolverBuilder {
 
 			if (stamina > 1200) {
 				const spurtStart = new RegionList();
-				spurtStart.push(new Region(CourseHelpers.phaseStart(course.distance, 2), course.distance));
+				spurtStart.push(new Region(courseHelpers.phaseStart(course.distance, 2), course.distance));
 				skilldata.push({
 					skillId: 'staminasyoubu',
 					perspective: Perspective.Self,

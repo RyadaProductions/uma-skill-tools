@@ -1,5 +1,3 @@
-const assert = require('assert').strict;
-
 export type Phase = 0 | 1 | 2 | 3;
 export const enum Surface { Turf = 1, Dirt }
 export const enum DistanceType { Short = 1, Mile, Mid, Long }
@@ -20,24 +18,36 @@ export interface CourseData {
 
 import courses from './data/course_data.json';
 
-export namespace CourseHelpers {
-	export function assertIsPhase(phase: number): asserts phase is Phase {
-		assert(phase == 0 || phase == 1 || phase == 2 || phase == 3);
+export class CourseHelpers {
+	public assertIsPhase(phase: number): Phase {
+		if (phase !== 0 && phase !== 1 && phase !== 2 && phase !== 3) {
+			throw new Error("unsupported phase");
+		}
+		return phase as Phase
 	}
 
-	export function assertIsSurface(surface: number): asserts surface is Surface {
-		assert(Surface.hasOwnProperty(surface));
+	public assertIsSurface(surface: number): Surface {
+		if (!Surface.hasOwnProperty(surface)) {
+			throw new Error("unsupported surface");
+		}
+		return surface as Surface;
 	}
 
-	export function assertIsDistanceType(distanceType: number): asserts distanceType is DistanceType {
-		assert(DistanceType.hasOwnProperty(distanceType));
+	public assertIsDistanceType(distanceType: number): DistanceType {
+		if(DistanceType.hasOwnProperty(distanceType)) {
+			throw new Error("unsupported distanceType");
+		}
+		return distanceType as DistanceType;
 	}
 
-	export function assertIsOrientation(orientation: number): asserts orientation is Orientation {
-		assert(Orientation.hasOwnProperty(orientation));
+	public assertIsOrientation(orientation: number): Orientation {
+		if(Orientation.hasOwnProperty(orientation)){
+			throw new Error("unsupported orientation");
+		}
+		return orientation as Orientation;
 	}
 
-	export function isSortedByStart(arr: readonly {readonly start: number}[]) {
+	public isSortedByStart(arr: readonly {readonly start: number}[]) {
 		// typescript seems to have some trouble inferring tuple types, presumably because it doesn't really
 		// sufficiently distinguish tuples from arrays
 		// so dance around a little bit to make it work
@@ -48,7 +58,7 @@ export namespace CourseHelpers {
 		return arr.reduce(isSorted, init)[0];
 	}
 
-	export function phaseStart(distance: number, phase: Phase) {
+	public phaseStart(distance: number, phase: Phase) {
 		switch (phase) {
 		case 0: return 0;
 		case 1: return distance * 1/6;
@@ -57,7 +67,7 @@ export namespace CourseHelpers {
 		}
 	}
 
-	export function phaseEnd(distance: number, phase: Phase) {
+	public phaseEnd(distance: number, phase: Phase) {
 		switch (phase) {
 		case 0: return distance * 1/6;
 		case 1: return distance * 2/3;
@@ -66,7 +76,7 @@ export namespace CourseHelpers {
 		}
 	}
 
-	export function courseSpeedModifier(
+	public courseSpeedModifier(
 		course: CourseData,
 		stats: Readonly<{speed: number, stamina: number, power: number, guts: number, wisdom: number}>
 	) {
@@ -76,9 +86,9 @@ export namespace CourseHelpers {
 		).reduce((a,b) => a + b, 0) / Math.max(course.courseSetStatus.length,1);
 	}
 
-	export function getCourse(courseId: number): CourseData {
+	public getCourse(courseId: number): CourseData {
 		const course = courses[courseId];
-		if (!isSortedByStart(course.slopes)) course.slopes.sort((a,b) => a.start - b.start);
+		if (!this.isSortedByStart(course.slopes)) course.slopes.sort((a,b) => a.start - b.start);
 		Object.keys(course).forEach(k => Object.freeze(course[k]));
 		return Object.freeze(course);
 	}

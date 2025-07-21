@@ -4,6 +4,8 @@ import { CourseData, CourseHelpers, Phase } from './CourseData';
 import { GroundCondition } from './RaceParameters';
 import { PRNG } from './Random';
 
+const courseHelpers = new CourseHelpers();
+
 export interface HpPolicy {
 	init(horse: HorseParameters): void
 	tick(state: RaceState, dt: number): void
@@ -87,7 +89,7 @@ export class GameHpPolicy {
 	}
 
 	getLastSpurtPair(state: RaceState, maxSpeed: number, baseTargetSpeed2: number) {
-		const maxDist = this.distance - CourseHelpers.phaseStart(this.distance, 2);
+		const maxDist = this.distance - courseHelpers.phaseStart(this.distance, 2);
 		const s = (maxDist - 60) / maxSpeed;
 		const lastleg = {phase: 2 as Phase, isPaceDown: false};
 		if (this.hp >= this.hpPerSecond(lastleg, maxSpeed) * s) {

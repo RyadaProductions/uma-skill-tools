@@ -1,19 +1,20 @@
-const assert = require('assert').strict;
-
 import { Strategy, Aptitude, HorseParameters, StrategyHelpers } from './HorseTypes';
 import { CourseData, CourseHelpers, Phase } from './CourseData';
 import { Region } from './Region';
 import { PRNG, Rule30CARng } from './Random';
 import type { HpPolicy } from './HpPolicy';
 
-declare var CC_GLOBAL: boolean
+const courseHelpers = new CourseHelpers();
+const strategyHelpers = new StrategyHelpers();
+
+let CC_GLOBAL: boolean;
 
 // for the browser builds, CC_GLOBAL is defined by esbuild as true/false
 // for node however we have to manually define it as false
 // annoyingly we can't use `var` here to define it locally because esbuild rewrites all uses of that to not be
 // replaced by the define
 // not entirely happy with this solution
-if (typeof CC_GLOBAL == "undefined") global.CC_GLOBAL = false;
+if (typeof CC_GLOBAL == "undefined") CC_GLOBAL = false;
 
 namespace Speed {
 	export const StrategyPhaseCoefficient = Object.freeze([
@@ -241,7 +242,7 @@ export class RaceSolver {
 		course: CourseData,
 		rng: PRNG,
 		skills: PendingSkill[],
-		hp: HpPolicy,
+		hp?: HpPolicy,
 		pacer?: RaceSolver,
 		onSkillActivate?: (s: RaceSolver, skillId: string) => void,
 		onSkillDeactivate?: (s: RaceSolver, skillId: string) => void
@@ -249,7 +250,7 @@ export class RaceSolver {
 		// clone since green skills may modify the stat values
 		this.horse = Object.assign({}, params.horse);
 		this.course = params.course;
-		this.hp = params.hp;
+		this.hp = params.hp || null;
 		this.pacer = params.pacer || null;
 		this.rng = params.rng;
 		this.pendingSkills = params.skills.slice();  // copy since we remove from it
@@ -260,7 +261,7 @@ export class RaceSolver {
 		this.timers = [];
 		this.accumulatetime = this.getNewTimer();
 		this.phase = 0;
-		this.nextPhaseTransition = CourseHelpers.phaseStart(this.course.distance, 1);
+		this.nextPhaseTransition = courseHelpers.phaseStart(this.course.distance, 1);
 		this.activeTargetSpeedSkills = [];
 		this.activeCurrentSpeedSkills = [];
 		this.activeAccelSkills = [];
@@ -277,7 +278,7 @@ export class RaceSolver {
 		// the beginning, which is somewhat predictable. arbitrarily cap at 5.
 		this.posKeepEnd = this.sectionLength * 5.0;
 		this.posKeepSpeedCoef = 1.0;
-		if (StrategyHelpers.strategyMatches(this.horse.strategy, Strategy.Nige) || this.pacer == null) {
+		if (strategyHelpers.strategyMatches(this.horse.strategy, Strategy.Nige) || this.pacer == null) {
 			this.updatePositionKeep = noop as any;
 		} else {
 			this.updatePositionKeep = this.updatePositionKeepNonNige;
@@ -325,7 +326,9 @@ export class RaceSolver {
 		// note that slopes are not always sorted by start location in course_data.json
 		// sometimes (?) they are sorted by hill type and then by start
 		// require this here because the code relies on encountering them sequentially
-		assert(CourseHelpers.isSortedByStart(this.course.slopes), 'slopes must be sorted by start location');
+		if (!courseHelpers.isSortedByStart(this.course.slopes)) {
+			throw new Error('slopes must be sorted by start location');
+		}
 
 		this.nHills = this.course.slopes.length;
 		this.hillStart = this.course.slopes.map(s => s.start).reverse();
@@ -503,7 +506,7 @@ export class RaceSolver {
 		// and it's easier to treat them together, so cap phase at 2.
 		if (this.pos >= this.nextPhaseTransition && this.phase < 2) {
 			++this.phase;
-			this.nextPhaseTransition = CourseHelpers.phaseStart(this.course.distance, this.phase + 1 as Phase);
+			this.nextPhaseTransition = courseHelpers.phaseStart(this.course.distance, this.phase + 1 as Phase);
 		}
 	}
 
@@ -639,7 +642,7 @@ export class RaceSolver {
 	// deactivate any skills that haven't finished their durations yet (intended to be called at the end of a simulation, when a skill
 	// might have activated towards the end of the race and the race finished before the skill's duration)
 	cleanup() {
-		const callDeactivateHook = (s: {skillId: string, perspective: Perspective}) => { this.onSkillDeactivate(this, s.skillId, s.perspective); }
+		const callDeactivateHook = (value) => { this.onSkillDeactivate(this, value.skillId, value.perspective); }
 		this.activeTargetSpeedSkills.forEach(callDeactivateHook);
 		this.activeCurrentSpeedSkills.forEach(callDeactivateHook);
 		this.activeAccelSkills.forEach(callDeactivateHook);
