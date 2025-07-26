@@ -1,5 +1,5 @@
 import { HorseParameters, Strategy, Aptitude } from './HorseTypes';
-import { CourseData, CourseHelpers, DistanceType } from './CourseData';
+import { CourseData, CourseHelpers } from './CourseData';
 import { Region, RegionList } from './Region';
 import { Rule30CARng } from './Random';
 import { Conditions, random, immediate, noopRandom } from './ActivationConditions';
@@ -8,8 +8,10 @@ import { getParser } from './ConditionParser';
 import { RaceSolver, RaceState, PendingSkill, DynamicCondition, SkillType, SkillRarity, SkillEffect, Perspective } from './RaceSolver';
 import { Mood, GroundCondition, Weather, Season, Time, Grade, RaceParameters } from './RaceParameters';
 import { GameHpPolicy, NoopHpPolicy } from './HpPolicy';
+import { AsitameCalcApproximateModifier } from './Asitame';
 
 import skills from './data/skill_data.json';
+import { staminaSyoubuCalcApproximateModifier } from './staminaSyoubu';
 
 const courseHelpers = new CourseHelpers();
 
@@ -40,37 +42,6 @@ const GroundPowerModifier = Object.freeze([
 ].map(o => Object.freeze(o)));
 
 const StrategyProficiencyModifier = Object.freeze([1.1, 1.0, 0.85, 0.75, 0.6, 0.4, 0.2, 0.1]);
-
-namespace Asitame {
-	export const StrategyDistanceCoefficient = Object.freeze([
-		[],  // distances are 1-indexed (as are strategies, hence the 0 in the first column for every row)
-		[0, 1.0, 0.7, 0.75,  0.7,  1.0],  // short (nige, senkou, sasi, oikomi, oonige)
-		[0, 1.0, 0.8, 0.7,   0.75, 1.0],  // mile
-		[0, 1.0, 0.9, 0.875, 0.86, 1.0],  // medium
-		[0, 1.0, 0.9, 1.0,   0.9,  1.0]   // long
-	]);
-
-	export const BaseModifier = 0.00875;
-
-	export function calcApproximateModifier(power: number, strategy: Strategy, distance: DistanceType) {
-		return BaseModifier * Math.sqrt(power - 1200) * StrategyDistanceCoefficient[distance][strategy];
-	}
-}
-
-namespace StaminaSyoubu {
-	export function distanceFactor(distance: number) {
-		if (distance < 2101) return 0.0;
-		else if (distance < 2201) return 0.5;
-		else if (distance < 2401) return 1.0;
-		else if (distance < 2601) return 1.2;
-		else return 1.5;
-	}
-
-	export function calcApproximateModifier(stamina: number, distance: number) {
-		const randomFactor = 1.0;  // TODO implement random factor scaling based on power (unclear how this works currently)
-		return Math.sqrt(stamina - 1200) * 0.0085 * distanceFactor(distance) * randomFactor;
-	}
-}
 
 export function parseStrategy(s: string | Strategy) {
 	if (typeof s != 'string') {
@@ -247,8 +218,8 @@ function isTarget(self: Perspective, targetType: SkillTarget) {
 
 function buildSkillEffects(skill, perspective: Perspective) {
 	// im on a really old version of node and cant use flatMap
-	return skill.effects.reduce((acc,ef) => {
-		if (isTarget(perspective, ef.target) && SkillType.hasOwnProperty(ef.type)) {
+	return skill.effects.reduce((acc, ef) => {
+		if (isTarget(perspective, ef.target) && (ef.type in SkillType)) {
 			acc.push({type: ef.type, baseDuration: skill.baseDuration / 10000, modifier: ef.modifier / 10000});
 		}
 		return acc;
@@ -561,7 +532,7 @@ export class RaceSolverBuilder {
 					effects: [{
 						type: SkillType.Accel,
 						baseDuration: 3.0 / (course.distance / 1000.0),
-						modifier: Asitame.calcApproximateModifier(power, horse.strategy, course.distanceType)
+						modifier: AsitameCalcApproximateModifier(power, horse.strategy, course.distanceType)
 					}]
 				});
 			}
@@ -596,7 +567,7 @@ export class RaceSolverBuilder {
 					effects: [{
 						type: SkillType.TargetSpeed,
 						baseDuration: 9999.0,
-						modifier: StaminaSyoubu.calcApproximateModifier(stamina, course.distance)
+						modifier: staminaSyoubuCalcApproximateModifier(stamina, course.distance)
 					}]
 				});
 			}

@@ -1,8 +1,11 @@
-import { Strategy, Aptitude, HorseParameters, StrategyHelpers } from './HorseTypes';
+import { Strategy, HorseParameters, StrategyHelpers } from './HorseTypes';
 import { CourseData, CourseHelpers, Phase } from './CourseData';
 import { Region } from './Region';
 import { PRNG, Rule30CARng } from './Random';
 import type { HpPolicy } from './HpPolicy';
+import { maxThreshold, minThreshold } from './positionKeep';
+import { AccelerationDistanceProficiencyModifier, AccelerationGroundTypeProficiencyModifier, AccelerationStrategyPhaseCoefficient } from './acceleration';
+import { SpeedDistanceProficiencyModifier, SpeedStrategyPhaseCoefficient } from './speed';
 
 const courseHelpers = new CourseHelpers();
 const strategyHelpers = new StrategyHelpers();
@@ -16,49 +19,24 @@ let CC_GLOBAL: boolean;
 // not entirely happy with this solution
 if (typeof CC_GLOBAL == "undefined") CC_GLOBAL = false;
 
-namespace Speed {
-	export const StrategyPhaseCoefficient = Object.freeze([
-		[], // strategies start numbered at 1
-		[1.0, 0.98, 0.962],
-		[0.978, 0.991, 0.975],
-		[0.938, 0.998, 0.994],
-		[0.931, 1.0, 1.0],
-		[1.063, 0.962, 0.95]
-	].map(a => Object.freeze(a)));
-	export const DistanceProficiencyModifier = Object.freeze([1.05, 1.0, 0.9, 0.8, 0.6, 0.4, 0.2, 0.1]);
-}
-
 function baseSpeed(course: CourseData) {
 	return 20.0 - (course.distance - 2000) / 1000.0;
 }
 
 function baseTargetSpeed(horse: HorseParameters, course: CourseData, phase: Phase) {
-	return baseSpeed(course) * Speed.StrategyPhaseCoefficient[horse.strategy][phase] +
+	return baseSpeed(course) * SpeedStrategyPhaseCoefficient[horse.strategy][phase] +
 		+(phase == 2) * Math.sqrt(500.0 * horse.speed) *
-		Speed.DistanceProficiencyModifier[horse.distanceAptitude] *
+		SpeedDistanceProficiencyModifier[horse.distanceAptitude] *
 		0.002;
 }
 
 function lastSpurtSpeed(horse: HorseParameters, course: CourseData) {
 	let v = (baseTargetSpeed(horse, course, 2) + 0.01 * baseSpeed(course)) * 1.05 +
-		Math.sqrt(500.0 * horse.speed) * Speed.DistanceProficiencyModifier[horse.distanceAptitude] * 0.002;
+		Math.sqrt(500.0 * horse.speed) * SpeedDistanceProficiencyModifier[horse.distanceAptitude] * 0.002;
 	if (!CC_GLOBAL) {
 		v += Math.pow(450.0 * horse.guts, 0.597) * 0.0001;
 	}
 	return v;
-}
-
-namespace Acceleration {
-	export const StrategyPhaseCoefficient = Object.freeze([
-		[],
-		[1.0, 1.0, 0.996],
-		[0.985, 1.0, 0.996],
-		[0.975, 1.0, 1.0],
-		[0.945, 1.0, 0.997],
-		[1.17, 0.94, 0.956]
-	].map(a => Object.freeze(a)));
-	export const GroundTypeProficiencyModifier = Object.freeze([1.05, 1.0, 0.9, 0.8, 0.7, 0.5, 0.3, 0.1]);
-	export const DistanceProficiencyModifier = Object.freeze([1.0, 1.0, 1.0, 1.0, 1.0, 0.6, 0.5, 0.4]);
 }
 
 const BaseAccel = 0.0006;
@@ -66,30 +44,12 @@ const UphillBaseAccel = 0.0004;
 
 function baseAccel(baseAccel: number, horse: HorseParameters, phase: Phase) {
 	return baseAccel * Math.sqrt(500.0 * horse.power) *
-	  Acceleration.StrategyPhaseCoefficient[horse.strategy][phase] *
-	  Acceleration.GroundTypeProficiencyModifier[horse.surfaceAptitude] *
-	  Acceleration.DistanceProficiencyModifier[horse.distanceAptitude];
+	  AccelerationStrategyPhaseCoefficient[horse.strategy][phase] *
+	  AccelerationGroundTypeProficiencyModifier[horse.surfaceAptitude] *
+	  AccelerationDistanceProficiencyModifier[horse.distanceAptitude];
 }
 
 const PhaseDeceleration = [-1.2, -0.8, -1.0];
-
-namespace PositionKeep {
-	export const BaseMinimumThreshold = Object.freeze([0, 0, 3.0, 6.5, 7.5]);
-	export const BaseMaximumThreshold = Object.freeze([0, 0, 5.0, 7.0, 8.0]);
-
-	export function courseFactor(distance: number) {
-		return 0.0008 * (distance - 1000) + 1.0;
-	}
-
-	export function minThreshold(strategy: Strategy, distance: number) {
-		// senkou minimum threshold is a constant 3.0 independent of the course factor for some reason
-		return BaseMinimumThreshold[strategy] * (strategy == Strategy.Senkou ? 1.0 : courseFactor(distance));
-	}
-
-	export function maxThreshold(strategy: Strategy, distance: number) {
-		return BaseMaximumThreshold[strategy] * courseFactor(distance);
-	}
-}
 
 // these are commonly initialized with a negative number and then checked >= 0 to see if a duration is up
 // (the reason for doing that instead of initializing with 0 and then checking against the duration is if
@@ -137,7 +97,7 @@ export const enum Perspective {
 	Any = 3
 }
 
-export const enum SkillType {
+export enum SkillType {
 	SpeedUp = 1,
 	StaminaUp = 2,
 	PowerUp = 3,
@@ -271,8 +231,8 @@ export class RaceSolver {
 		this.onSkillDeactivate = params.onSkillDeactivate || noop;
 		this.sectionLength = this.course.distance / 24.0;
 		this.isPaceDown = false;
-		this.posKeepMinThreshold = PositionKeep.minThreshold(this.horse.strategy, this.course.distance);
-		this.posKeepMaxThreshold = PositionKeep.maxThreshold(this.horse.strategy, this.course.distance);
+		this.posKeepMinThreshold = minThreshold(this.horse.strategy, this.course.distance);
+		this.posKeepMaxThreshold = maxThreshold(this.horse.strategy, this.course.distance);
 		this.posKeepCooldown = this.getNewTimer();
 		// NB. in the actual game, position keep continues for 10 sections. however we're really only interested in pace down at
 		// the beginning, which is somewhat predictable. arbitrarily cap at 5.

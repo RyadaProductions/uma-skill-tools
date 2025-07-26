@@ -617,7 +617,9 @@ export const Conditions: {[cond: string]: Condition} = Object.freeze({
 	}),
 	down_slope_random: random({
 		filterEq(regions: RegionList, one: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			assert(one == 1, 'must be down_slope_random==1');
+			if (one !== 1) {
+				throw new Error("must be down_slope_random==1");	
+			}
 			const slopes = course.slopes.filter(s => s.slope < 0).map(s => new Region(s.start, s.start + s.length));
 			return regions.rmap(r => slopes.map(s => r.intersect(s)));
 		}
@@ -808,7 +810,7 @@ export const Conditions: {[cond: string]: Condition} = Object.freeze({
 	phase: {
 		samplePolicy: ImmediatePolicy,
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
 			// add a little bit to the end to account for the fact that phase check happens later than skill activations
 			// this is mainly relevant for skills with phase condition + a corner condition (e.g. kanata) because corner check
 			// occurs before skill activations so when the start of a corner exactly coincides with the end of a phase (e.g.,
@@ -817,42 +819,42 @@ export const Conditions: {[cond: string]: Condition} = Object.freeze({
 			// safe to do in all cases. technically to fix this `phase` should probably be a dynamic condition that actually
 			// checks the phase to match in-game mechanics
 			const fudge = ['100591', '900591', '110261', '910261', '110191', '910191', '120451', '920451', '101502121'].indexOf(extra.skillId) > -1 ? 10 : 0;
-			const bounds = new Region(courseHelpers.phaseStart(course.distance, phase), courseHelpers.phaseEnd(course.distance, phase) + fudge);
+			const bounds = new Region(courseHelpers.phaseStart(course.distance, parsedPhase), courseHelpers.phaseEnd(course.distance, parsedPhase) + fudge);
 			return regions.rmap(r => r.intersect(bounds));
 		},
 		filterNeq: notSupported,
 		filterLt(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			if (phase < 1) {
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			if (parsedPhase < 1) {
 				throw new Error("phase == 0");
 			}
-			const bounds = new Region(0, courseHelpers.phaseStart(course.distance, phase));
+			const bounds = new Region(0, courseHelpers.phaseStart(course.distance, parsedPhase));
 			return regions.rmap(r => r.intersect(bounds));
 		},
 		filterLte(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const bounds = new Region(0, courseHelpers.phaseEnd(course.distance, phase));
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const bounds = new Region(0, courseHelpers.phaseEnd(course.distance, parsedPhase));
 			return regions.rmap(r => r.intersect(bounds));
 		},
 		filterGt(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			if (phase >= 3) {
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			if (parsedPhase >= 3) {
 				throw new Error("phase > 2");
 			}
-			const bounds = new Region(courseHelpers.phaseStart(course.distance, (phase + 1) as Phase), course.distance);
+			const bounds = new Region(courseHelpers.phaseStart(course.distance, (parsedPhase + 1) as Phase), course.distance);
 			return regions.rmap(r => r.intersect(bounds));
 		},
 		filterGte(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const bounds = new Region(courseHelpers.phaseStart(course.distance, phase), course.distance);
+			const parsedPhase =courseHelpers.assertIsPhase(phase);
+			const bounds = new Region(courseHelpers.phaseStart(course.distance, parsedPhase), course.distance);
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	},
 	phase_corner_random: random({
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const phaseStart = courseHelpers.phaseStart(course.distance, phase);
-			const phaseEnd = courseHelpers.phaseEnd(course.distance, phase);
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const phaseStart = courseHelpers.phaseStart(course.distance, parsedPhase);
+			const phaseEnd = courseHelpers.phaseEnd(course.distance, parsedPhase);
 			const corners = course.corners
 				.filter(c => (c.start >= phaseStart && c.start < phaseEnd) || (c.start + c.length >= phaseStart && c.start + c.length < phaseEnd))
 				.map(c => new Region(Math.max(c.start, phaseStart), Math.min(c.start + c.length, phaseEnd)));
@@ -861,52 +863,52 @@ export const Conditions: {[cond: string]: Condition} = Object.freeze({
 	}),
 	phase_firsthalf_random: random({
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const start = courseHelpers.phaseStart(course.distance, phase);
-			const end = courseHelpers.phaseEnd(course.distance, phase);
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const start = courseHelpers.phaseStart(course.distance, parsedPhase);
+			const end = courseHelpers.phaseEnd(course.distance, parsedPhase);
 			const bounds = new Region(start, start + (end - start) / 2);
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
 	phase_firstquarter: immediate({
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const start = courseHelpers.phaseStart(course.distance, phase);
-			const end = courseHelpers.phaseEnd(course.distance, phase);
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const start = courseHelpers.phaseStart(course.distance, parsedPhase);
+			const end = courseHelpers.phaseEnd(course.distance, parsedPhase);
 			const bounds = new Region(start, start + (end - start) / 4);
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
 	phase_firstquarter_random: random({
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const start = courseHelpers.phaseStart(course.distance, phase);
-			const end = courseHelpers.phaseEnd(course.distance, phase);
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const start = courseHelpers.phaseStart(course.distance, parsedPhase);
+			const end = courseHelpers.phaseEnd(course.distance, parsedPhase);
 			const bounds = new Region(start, start + (end - start) / 4);
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
 	phase_laterhalf_random: random({
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const start = courseHelpers.phaseStart(course.distance, phase);
-			const end = courseHelpers.phaseEnd(course.distance, phase);
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const start = courseHelpers.phaseStart(course.distance, parsedPhase);
+			const end = courseHelpers.phaseEnd(course.distance, parsedPhase);
 			const bounds = new Region((start + end) / 2, end);
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
 	phase_random: random({
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const bounds = new Region(courseHelpers.phaseStart(course.distance, phase), courseHelpers.phaseEnd(course.distance, phase));
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const bounds = new Region(courseHelpers.phaseStart(course.distance, parsedPhase), courseHelpers.phaseEnd(course.distance, parsedPhase));
 			return regions.rmap(r => r.intersect(bounds));
 		}
 	}),
 	phase_straight_random: {
 		samplePolicy: StraightRandomPolicy,
 		filterEq(regions: RegionList, phase: number, course: CourseData, _: HorseParameters, extra: RaceParameters) {
-			courseHelpers.assertIsPhase(phase);
-			const phaseBounds = new Region(courseHelpers.phaseStart(course.distance, phase), courseHelpers.phaseEnd(course.distance, phase));
+			const parsedPhase = courseHelpers.assertIsPhase(phase);
+			const phaseBounds = new Region(courseHelpers.phaseStart(course.distance, parsedPhase), courseHelpers.phaseEnd(course.distance, parsedPhase));
 			return regions.rmap(r => course.straights.map(s => r.intersect(s))).rmap(r => r.intersect(phaseBounds));
 		},
 		filterNeq: notSupported,

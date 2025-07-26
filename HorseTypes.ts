@@ -1,4 +1,4 @@
-export const enum Strategy { Nige = 1, Senkou, Sasi, Oikomi, Oonige }
+export enum Strategy { Nige = 1, Senkou, Sasi, Oikomi, Oonige }
 export const enum Aptitude { S, A, B, C, D, E, F, G }
 
 export interface HorseParameters {
@@ -16,7 +16,7 @@ export interface HorseParameters {
 
 export class StrategyHelpers {
 	public assertIsStrategy(strategy: number): Strategy {
-		if (!Strategy.hasOwnProperty(strategy)) {
+		if (!(strategy in Strategy)) {
 			throw new Error("unsupported strategy");
 		}
 		return strategy as Strategy;
